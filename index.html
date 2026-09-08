@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>טיימר אימון אישי</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --action-color: #f0883e;
+      --rest-color: #58a6ff;
+      --accent: #238636;
+      --danger: #da3633;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 1rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      text-align: center;
+    }
+
+    .phase-badge {
+      display: inline-block;
+      padding: 0.35rem 1rem;
+      border-radius: 999px;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.5rem;
+    }
+
+    .phase-intro {
+      background: rgba(187, 128, 255, 0.15);
+      color: #d2a8ff;
+      border: 1px solid #d2a8ff;
+    }
+
+    .phase-action {
+      background: rgba(240, 136, 62, 0.15);
+      color: var(--action-color);
+      border: 1px solid var(--action-color);
+    }
+
+    .phase-rest {
+      background: rgba(88, 166, 255, 0.15);
+      color: var(--rest-color);
+      border: 1px solid var(--rest-color);
+    }
+
+    .phase-ready {
+      background: rgba(139, 148, 158, 0.15);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+
+    .timer-display {
+      font-size: 4.5rem;
+      font-weight: 800;
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+      margin: 0.5rem 0;
+    }
+
+    .total-time {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+    }
+
+    .instruction-box {
+      font-size: 1.15rem;
+      line-height: 1.5;
+      min-height: 4.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5rem;
+    }
+
+    .meta-details {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      text-align: right;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+      padding-top: 0.75rem;
+      margin-top: 0.5rem;
+    }
+
+    .meta-details strong {
+      color: var(--text);
+    }
+
+    .voice-control-box {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+      align-items: center;
+    }
+
+    select {
+      flex: 1;
+      background: #090d13;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: #c9d1d9;
+      padding: 0.6rem;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .btn-test {
+      background: #1f6feb;
+      color: #fff;
+      padding: 0.6rem 0.9rem;
+      font-size: 0.85rem;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    button {
+      padding: 0.9rem 1rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.05rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: opacity 0.2s;
+    }
+
+    button:active {
+      opacity: 0.8;
+    }
+
+    .btn-start {
+      background-color: var(--accent);
+      color: #fff;
+      grid-column: span 2;
+    }
+
+    .btn-pause {
+      background-color: #d29922;
+      color: #111;
+    }
+
+    .btn-reset {
+      background-color: var(--danger);
+      color: #fff;
+    }
+
+    .btn-toggle-config {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      padding: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .config-panel {
+      display: none;
+      flex-direction: column;
+      gap: 0.5rem;
+      text-align: right;
+    }
+
+    .config-panel.open {
+      display: flex;
+    }
+
+    textarea {
+      width: 100%;
+      height: 120px;
+      background: #090d13;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: #7ee787;
+      padding: 0.75rem;
+      font-family: monospace;
+      font-size: 0.85rem;
+      resize: vertical;
+      direction: ltr;
+      text-align: left;
+    }
+
+    .btn-apply {
+      background: #1f6feb;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="card">
+    <div id="phaseBadge" class="phase-badge phase-ready">מוכן להתחלה</div>
+    <div id="phaseTimer" class="timer-display">00</div>
+    <div class="total-time">זמן כולל שנותר: <span id="totalTimer">00:00</span></div>
+    
+    <div id="instructionText" class="instruction-box">
+      לחץ על "התחל אימון" להשמעת התדריך ותחילת התרגול
+    </div>
+
+    <div class="meta-details">
+      <div><strong>אזור מגע:</strong> <span id="areaDisplay">-</span></div>
+      <div><strong>קצב והנחיה:</strong> <span id="paceDisplay">-</span></div>
+    </div>
+
+    <div class="voice-control-box">
+      <select id="voiceSelect" aria-label="בחירת קול"></select>
+      <button id="testVoiceBtn" class="btn-test">בדוק קול</button>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="startBtn" class="btn-start">התחל אימון</button>
+    <button id="pauseBtn" class="btn-pause" style="display:none;">השהה</button>
+    <button id="resetBtn" class="btn-reset" style="display:none;">איפוס</button>
+  </div>
+
+  <button id="toggleConfigBtn" class="btn-toggle-config">הגדרות פרוטוקול ידניות</button>
+  
+  <div id="configPanel" class="card config-panel">
+    <label for="jsonInput">קוד JSON פעיל:</label>
+    <textarea id="jsonInput"></textarea>
+    <button id="applyJsonBtn" class="btn-apply">טען ידנית</button>
+  </div>
+</div>
+
+<script>
+  let defaultProtocol = {
+    "type": "rest",
+    "durationMin": 3,
+    "areaText": "ללא מגע (הרפיית ירכיים ורצפת אגן)",
+    "paceText": "נשימה סרעפתית מבוקרת: 4 שניות שאיפה, 6 שניות נשיפה",
+    "introVoice": "תדריך התאוששות. הערב אין מגע פיזי. שכב בנוח על הגב עם כריות מתחת לברכיים, שחרר לחלוטין את הירכיים וסוגר פי הטבעת, והתמקד בנשימה סרעפתית עמוקה.",
+    "actionDurationSec": 4,
+    "restDurationSec": 6,
+    "actionMsg": "שאיפה עדינה דרך האף אל עומק הבטן (4 שניות). שים לב שהירכיים נחות בכבדות על הכריות.",
+    "restMsg": "נשיפה איטית דרך פה פתוח (6 שניות). שחרר את מפרק הלסת ותן לאגן לשקוע למזרן.",
+    "actionVoice": "שאיפה איטית לבטן. ירכיים רפויות לחלוטין על הכריות.",
+    "restVoice": "נשיפה ארוכה דרך פה פתוח. שחרר לסת, תן לאגן לשקוע במזרן."
+  };
+
+  let config = { ...defaultProtocol };
+  let timerInterval = null;
+  let isRunning = false;
+  let currentPhase = 'ready';
+  let phaseTimeLeft = 0;
+  let totalTimeLeft = 0;
+  let wakeLock = null;
+  let availableVoices = [];
+
+  const phaseBadge = document.getElementById('phaseBadge');
+  const phaseTimer = document.getElementById('phaseTimer');
+  const totalTimer = document.getElementById('totalTimer');
+  const instructionText = document.getElementById('instructionText');
+  const areaDisplay = document.getElementById('areaDisplay');
+  const paceDisplay = document.getElementById('paceDisplay');
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const toggleConfigBtn = document.getElementById('toggleConfigBtn');
+  const configPanel = document.getElementById('configPanel');
+  const jsonInput = document.getElementById('jsonInput');
+  const applyJsonBtn = document.getElementById('applyJsonBtn');
+  const voiceSelect = document.getElementById('voiceSelect');
+  const testVoiceBtn = document.getElementById('testVoiceBtn');
+
+  function loadFromUrlHash() {
+    if (window.location.hash && window.location.hash.length > 1) {
+      try {
+        const hashData = window.location.hash.substring(1);
+        let jsonStr;
+        try {
+          jsonStr = decodeURIComponent(escape(atob(hashData)));
+        } catch (e) {
+          jsonStr = decodeURIComponent(hashData);
+        }
+        config = JSON.parse(jsonStr);
+      } catch (err) {
+        console.warn("שגיאה בטעינת פרוטוקול מקישור", err);
+      }
+    }
+  }
+
+  function populateVoices() {
+    if (!('speechSynthesis' in window)) return;
+    availableVoices = window.speechSynthesis.getVoices();
+    voiceSelect.innerHTML = '';
+
+    const hebrewVoices = availableVoices.filter(v => v.lang.startsWith('he'));
+    const voicesToShow = hebrewVoices.length > 0 ? hebrewVoices : availableVoices;
+
+    voicesToShow.forEach((v) => {
+      const opt = document.createElement('option');
+      opt.value = v.name;
+      opt.textContent = `${v.name} (${v.lang})`;
+      voiceSelect.appendChild(opt);
+    });
+
+    const preferred = voicesToShow.find(v => 
+      v.name.includes('Carmit') || 
+      v.name.includes('Hila') || 
+      v.name.toLowerCase().includes('female') ||
+      v.name.includes('2')
+    );
+    if (preferred) {
+      voiceSelect.value = preferred.name;
+    }
+  }
+
+  if ('speechSynthesis' in window) {
+    populateVoices();
+    window.speechSynthesis.onvoiceschanged = populateVoices;
+  }
+
+  function speak(text, onEndCallback = null) {
+    if (!text || !('speechSynthesis' in window)) {
+      if (onEndCallback) onEndCallback();
+      return;
+    }
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'he-IL';
+    utterance.rate = 0.9;
+    utterance.pitch = 1.25;
+
+    const selectedName = voiceSelect.value;
+    const chosenVoice = availableVoices.find(v => v.name === selectedName);
+    if (chosenVoice) {
+      utterance.voice = chosenVoice;
+    }
+
+    if (onEndCallback) {
+      utterance.onend = onEndCallback;
+      utterance.onerror = onEndCallback;
+    }
+    
+    window.speechSynthesis.speak(utterance);
+  }
+
+  testVoiceBtn.addEventListener('click', () => {
+    speak("תדריך אימון. שכב בנוח, נשום עמוק לבטן ושחרר את הלסת.");
+  });
+
+  function initFromConfig() {
+    totalTimeLeft = config.durationMin * 60;
+    phaseTimeLeft = config.actionDurationSec;
+    areaDisplay.textContent = config.areaText || "-";
+    paceDisplay.textContent = config.paceText || "-";
+    totalTimer.textContent = formatTime(totalTimeLeft);
+    phaseTimer.textContent = String(config.actionDurationSec).padStart(2, '0');
+    jsonInput.value = JSON.stringify(config, null, 2);
+  }
+
+  function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLock = await navigator.wakeLock.request('screen');
+      }
+    } catch (e) {
+      console.warn("Wake Lock not active", e);
+    }
+  }
+
+  function releaseWakeLock() {
+    if (wakeLock) {
+      wakeLock.release();
+      wakeLock = null;
+    }
+  }
+
+  function switchPhase(newPhase) {
+    currentPhase = newPhase;
+    if (newPhase === 'action') {
+      phaseTimeLeft = config.actionDurationSec;
+      phaseBadge.textContent = (config.type === 'rest') ? "שאיפה והרפיה" : "מגע מודע (תנועה)";
+      phaseBadge.className = "phase-badge phase-action";
+      instructionText.textContent = config.actionMsg;
+      speak(config.actionVoice || config.actionMsg);
+    } else if (newPhase === 'rest') {
+      phaseTimeLeft = config.restDurationSec;
+      phaseBadge.textContent = "נשיפה ושקיעה במזרן";
+      phaseBadge.className = "phase-badge phase-rest";
+      instructionText.textContent = config.restMsg;
+      speak(config.restVoice || config.restMsg);
+    }
+    phaseTimer.textContent = String(phaseTimeLeft).padStart(2, '0');
+  }
+
+  function tick() {
+    if (totalTimeLeft <= 0) {
+      endSession();
+      return;
+    }
+
+    totalTimeLeft--;
+    phaseTimeLeft--;
+
+    totalTimer.textContent = formatTime(totalTimeLeft);
+    phaseTimer.textContent = String(phaseTimeLeft).padStart(2, '0');
+
+    if (phaseTimeLeft <= 0) {
+      if (currentPhase === 'action') {
+        switchPhase('rest');
+      } else {
+        switchPhase('action');
+      }
+    }
+  }
+
+  function startTimer() {
+    if (isRunning) return;
+    isRunning = true;
+    requestWakeLock();
+
+    startBtn.style.display = 'none';
+    pauseBtn.style.display = 'block';
+    resetBtn.style.display = 'block';
+
+    if (currentPhase === 'ready') {
+      phaseBadge.textContent = "תדריך הנחיות";
+      phaseBadge.className = "phase-badge phase-intro";
+      const introText = config.introVoice || `תדריך אימון. אזור מגע: ${config.areaText}. קצב: ${config.paceText}. התמקד בהרפיית שרירים.`;
+      instructionText.textContent = introText;
+
+      speak(introText, () => {
+        if (!isRunning) return;
+        switchPhase('action');
+        timerInterval = setInterval(tick, 1000);
+      });
+    } else {
+      timerInterval = setInterval(tick, 1000);
+    }
+  }
+
+  function pauseTimer() {
+    if (!isRunning) return;
+    isRunning = false;
+    clearInterval(timerInterval);
+    releaseWakeLock();
+    window.speechSynthesis.cancel();
+
+    startBtn.style.display = 'block';
+    startBtn.textContent = 'המשך';
+    pauseBtn.style.display = 'none';
+  }
+
+  function resetTimer() {
+    pauseTimer();
+    currentPhase = 'ready';
+    phaseBadge.textContent = "מוכן להתחלה";
+    phaseBadge.className = "phase-badge phase-ready";
+    instructionText.textContent = 'לחץ על "התחל אימון" להשמעת התדריך ותחילת התרגול';
+    startBtn.textContent = 'התחל אימון';
+    startBtn.style.display = 'block';
+    pauseBtn.style.display = 'none';
+    resetBtn.style.display = 'none';
+    initFromConfig();
+  }
+
+  function endSession() {
+    clearInterval(timerInterval);
+    isRunning = false;
+    releaseWakeLock();
+    phaseBadge.textContent = "האימון הסתיים בהצלחה";
+    phaseBadge.className = "phase-badge phase-rest";
+    instructionText.textContent = "שמור על הרפיית הגוף. עמדת בחוק המאסטרי בהצלחה.";
+    phaseTimer.textContent = "00";
+    totalTimer.textContent = "00:00";
+    speak("האימון הסתיים בהצלחה. עמדת בחוק המאסטרי.");
+    startBtn.style.display = 'none';
+    pauseBtn.style.display = 'none';
+    resetBtn.style.display = 'block';
+  }
+
+  startBtn.addEventListener('click', startTimer);
+  pauseBtn.addEventListener('click', pauseTimer);
+  resetBtn.addEventListener('click', resetTimer);
+
+  toggleConfigBtn.addEventListener('click', () => {
+    configPanel.classList.toggle('open');
+  });
+
+  applyJsonBtn.addEventListener('click', () => {
+    try {
+      const parsed = JSON.parse(jsonInput.value);
+      config = parsed;
+      resetTimer();
+      configPanel.classList.remove('open');
+    } catch (e) {
+      alert("שגיאה במבנה ה-JSON. ודא שהקוד תקין.");
+    }
+  });
+
+  window.addEventListener('hashchange', () => {
+    loadFromUrlHash();
+    resetTimer();
+  });
+
+  loadFromUrlHash();
+  initFromConfig();
+</script>
+</body>
+</html>
