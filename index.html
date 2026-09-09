@@ -191,46 +191,6 @@
       background-color: var(--danger);
       color: #fff;
     }
-
-    .btn-toggle-config {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-      font-size: 0.85rem;
-      padding: 0.5rem;
-      margin-top: 0.5rem;
-    }
-
-    .config-panel {
-      display: none;
-      flex-direction: column;
-      gap: 0.5rem;
-      text-align: right;
-    }
-
-    .config-panel.open {
-      display: flex;
-    }
-
-    textarea {
-      width: 100%;
-      height: 120px;
-      background: #090d13;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: #7ee787;
-      padding: 0.75rem;
-      font-family: monospace;
-      font-size: 0.85rem;
-      resize: vertical;
-      direction: ltr;
-      text-align: left;
-    }
-
-    .btn-apply {
-      background: #1f6feb;
-      color: #fff;
-    }
   </style>
 </head>
 <body>
@@ -261,32 +221,10 @@
     <button id="pauseBtn" class="btn-pause" style="display:none;">השהה</button>
     <button id="resetBtn" class="btn-reset" style="display:none;">איפוס</button>
   </div>
-
-  <button id="toggleConfigBtn" class="btn-toggle-config">הגדרות פרוטוקול ידניות</button>
-  
-  <div id="configPanel" class="card config-panel">
-    <label for="jsonInput">קוד JSON פעיל:</label>
-    <textarea id="jsonInput"></textarea>
-    <button id="applyJsonBtn" class="btn-apply">טען ידנית</button>
-  </div>
 </div>
 
 <script>
-  let defaultProtocol = {
-    "type": "rest",
-    "durationMin": 3,
-    "areaText": "ללא מגע (הרפיית ירכיים ורצפת אגן)",
-    "paceText": "נשימה סרעפתית מבוקרת: 4 שניות שאיפה, 6 שניות נשיפה",
-    "introVoice": "תדריך התאוששות. הערב אין מגע פיזי. שכב בנוח על הגב עם כריות מתחת לברכיים, שחרר לחלוטין את הירכיים וסוגר פי הטבעת, והתמקד בנשימה סרעפתית עמוקה.",
-    "actionDurationSec": 4,
-    "restDurationSec": 6,
-    "actionMsg": "שאיפה עדינה דרך האף אל עומק הבטן (4 שניות). שים לב שהירכיים נחות בכבדות על הכריות.",
-    "restMsg": "נשיפה איטית דרך פה פתוח (6 שניות). שחרר את מפרק הלסת ותן לאגן לשקוע למזרן.",
-    "actionVoice": "שאיפה איטית לבטן. ירכיים רפויות לחלוטין על הכריות.",
-    "restVoice": "נשיפה ארוכה דרך פה פתוח. שחרר לסת, תן לאגן לשקוע במזרן."
-  };
-
-  let config = { ...defaultProtocol };
+  let config = {};
   let timerInterval = null;
   let isRunning = false;
   let currentPhase = 'ready';
@@ -304,27 +242,51 @@
   const startBtn = document.getElementById('startBtn');
   const pauseBtn = document.getElementById('pauseBtn');
   const resetBtn = document.getElementById('resetBtn');
-  const toggleConfigBtn = document.getElementById('toggleConfigBtn');
-  const configPanel = document.getElementById('configPanel');
-  const jsonInput = document.getElementById('jsonInput');
-  const applyJsonBtn = document.getElementById('applyJsonBtn');
   const voiceSelect = document.getElementById('voiceSelect');
   const testVoiceBtn = document.getElementById('testVoiceBtn');
 
-  function loadFromUrlHash() {
-    if (window.location.hash && window.location.hash.length > 1) {
-      try {
-        const hashData = window.location.hash.substring(1);
-        let jsonStr;
-        try {
-          jsonStr = decodeURIComponent(escape(atob(hashData)));
-        } catch (e) {
-          jsonStr = decodeURIComponent(hashData);
-        }
-        config = JSON.parse(jsonStr);
-      } catch (err) {
-        console.warn("שגיאה בטעינת פרוטוקול מקישור", err);
-      }
+  function parseUrlParams() {
+    let rawQuery = window.location.search;
+    if (!rawQuery && window.location.hash.includes('?')) {
+      rawQuery = window.location.hash.substring(window.location.hash.indexOf('?'));
+    }
+    const p = new URLSearchParams(rawQuery);
+
+    const type = p.get('t') || 'rest';
+    const durationMin = parseInt(p.get('m') || (type === 'rest' ? '3' : '6'), 10);
+    const actionSec = parseInt(p.get('a') || (type === 'rest' ? '4' : '10'), 10);
+    const restSec = parseInt(p.get('r') || (type === 'rest' ? '6' : '30'), 10);
+    const zone = p.get('z') || (type === 'rest' ? 'none' : 'base');
+
+    if (type === 'rest') {
+      config = {
+        type: 'rest',
+        durationMin: durationMin,
+        actionDurationSec: actionSec,
+        restDurationSec: restSec,
+        areaText: "ללא מגע (הרפיית ירכיים ורצפת אגן)",
+        paceText: `נשימה סרעפתית: ${actionSec} שניות שאיפה, ${restSec} שניות נשיפה`,
+        introVoice: "תדריך התאוששות. הערב אין מגע פיזי. שכב בנוח על הגב עם כריות מתחת לברכיים, שחרר לחלוטין את הירכיים והלסת, והתמקד בנשימה סרעפתית עמוקה. מתחילים.",
+        actionMsg: `שאיפה עדינה דרך האף לבטן (${actionSec} שניות). ודא שהירכיים נחות בכבדות על הכריות.`,
+        restMsg: `נשיפה איטית דרך פה פתוח (${restSec} שניות). שחרר את הלסת ותן לאגן לשקוע למזרן.`,
+        actionVoice: "שאיפה איטית לבטן. ירכיים רפויות על הכריות.",
+        restVoice: "נשיפה ארוכה דרך פה פתוח. שחרר לסת, תן לאגן לשקוע למזרן."
+      };
+    } else {
+      let areaTitle = (zone === 'base') ? "בסיס האיבר (שליש תחתון בלבד)" : "מרכז גוף האיבר";
+      config = {
+        type: 'physical',
+        durationMin: durationMin,
+        actionDurationSec: actionSec,
+        restDurationSec: restSec,
+        areaText: areaTitle,
+        paceText: `קצב נמלה סופר-איטי: ${actionSec} שניות תנועה, ${restSec} שניות עצירה`,
+        introVoice: `תדריך אימון. אזור המגע: ${areaTitle}. קצב סופר איטי. שכב עם כריות מתחת לברכיים, ירכיים ולסת רפויות לחלוטין. מתחילים.`,
+        actionMsg: `בצע מיקרו-תנועות (1 ס"מ) רק ב${areaTitle}. ודא שהירכיים רכות לחלוטין על הכריות!`,
+        restMsg: "עצירה מלאה! פתח פה, שחרר לסת, ונשוף ארוך. דמיין שהירכיים והישבן שוקעים למזרן.",
+        actionVoice: "מגע איטי בבסיס בלבד. ירכיים רפויות על הכריות.",
+        restVoice: "עצירה מוחלטת. שחרר לסת, נשום לבטן, תן לאגן לשקוע למזרן."
+      };
     }
   }
 
@@ -390,13 +352,13 @@
   });
 
   function initFromConfig() {
+    parseUrlParams();
     totalTimeLeft = config.durationMin * 60;
     phaseTimeLeft = config.actionDurationSec;
-    areaDisplay.textContent = config.areaText || "-";
-    paceDisplay.textContent = config.paceText || "-";
+    areaDisplay.textContent = config.areaText;
+    paceDisplay.textContent = config.paceText;
     totalTimer.textContent = formatTime(totalTimeLeft);
     phaseTimer.textContent = String(config.actionDurationSec).padStart(2, '0');
-    jsonInput.value = JSON.stringify(config, null, 2);
   }
 
   function formatTime(seconds) {
@@ -410,9 +372,7 @@
       if ('wakeLock' in navigator) {
         wakeLock = await navigator.wakeLock.request('screen');
       }
-    } catch (e) {
-      console.warn("Wake Lock not active", e);
-    }
+    } catch (e) {}
   }
 
   function releaseWakeLock() {
@@ -429,13 +389,13 @@
       phaseBadge.textContent = (config.type === 'rest') ? "שאיפה והרפיה" : "מגע מודע (תנועה)";
       phaseBadge.className = "phase-badge phase-action";
       instructionText.textContent = config.actionMsg;
-      speak(config.actionVoice || config.actionMsg);
+      speak(config.actionVoice);
     } else if (newPhase === 'rest') {
       phaseTimeLeft = config.restDurationSec;
       phaseBadge.textContent = "נשיפה ושקיעה במזרן";
       phaseBadge.className = "phase-badge phase-rest";
       instructionText.textContent = config.restMsg;
-      speak(config.restVoice || config.restMsg);
+      speak(config.restVoice);
     }
     phaseTimer.textContent = String(phaseTimeLeft).padStart(2, '0');
   }
@@ -453,11 +413,7 @@
     phaseTimer.textContent = String(phaseTimeLeft).padStart(2, '0');
 
     if (phaseTimeLeft <= 0) {
-      if (currentPhase === 'action') {
-        switchPhase('rest');
-      } else {
-        switchPhase('action');
-      }
+      switchPhase(currentPhase === 'action' ? 'rest' : 'action');
     }
   }
 
@@ -473,10 +429,9 @@
     if (currentPhase === 'ready') {
       phaseBadge.textContent = "תדריך הנחיות";
       phaseBadge.className = "phase-badge phase-intro";
-      const introText = config.introVoice || `תדריך אימון. אזור מגע: ${config.areaText}. קצב: ${config.paceText}. התמקד בהרפיית שרירים.`;
-      instructionText.textContent = introText;
+      instructionText.textContent = config.introVoice;
 
-      speak(introText, () => {
+      speak(config.introVoice, () => {
         if (!isRunning) return;
         switchPhase('action');
         timerInterval = setInterval(tick, 1000);
@@ -530,27 +485,8 @@
   pauseBtn.addEventListener('click', pauseTimer);
   resetBtn.addEventListener('click', resetTimer);
 
-  toggleConfigBtn.addEventListener('click', () => {
-    configPanel.classList.toggle('open');
-  });
-
-  applyJsonBtn.addEventListener('click', () => {
-    try {
-      const parsed = JSON.parse(jsonInput.value);
-      config = parsed;
-      resetTimer();
-      configPanel.classList.remove('open');
-    } catch (e) {
-      alert("שגיאה במבנה ה-JSON. ודא שהקוד תקין.");
-    }
-  });
-
-  window.addEventListener('hashchange', () => {
-    loadFromUrlHash();
-    resetTimer();
-  });
-
-  loadFromUrlHash();
+  window.addEventListener('popstate', resetTimer);
+  window.addEventListener('hashchange', resetTimer);
   initFromConfig();
 </script>
 </body>
