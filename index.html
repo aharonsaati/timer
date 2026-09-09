@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>טיימר אימון אישי</title>
+  <title>נגן אימון אישי</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -166,7 +166,7 @@
     <div class="total-time">זמן כולל שנותר: <span id="totalTimer">00:00</span></div>
     
     <div id="instructionText" class="instruction-box">
-      לחץ על "התחל אימון" להשמעת התדריך ותחילת התרגול
+      לחץ על "התחל אימון" לתחילת התרגול
     </div>
 
     <div class="meta-details">
@@ -209,85 +209,65 @@
   const voiceSelect = document.getElementById('voiceSelect');
   const testVoiceBtn = document.getElementById('testVoiceBtn');
 
-  // מילון מונחים דינמי עם ניקוד מלא עבור מנוע הדיבור
-  const ZONES = {
-    base: { text: "בסיס האיבר בלבד", voice: "בְּסִיס הָאֵיבָר בִּלְבַד" },
-    mid: { text: "מרכז גוף האיבר", voice: "מֶרְכַּז גּוּף הָאֵיבָר" },
-    shaft: { text: "גוף האיבר במלואו", voice: "גּוּף הָאֵיבָר בִּמְלוֹאוֹ" },
-    corona: { text: "אזור העטרה והחריץ", voice: "אֲזוֹר הָעֲטָרָה וְהֶחָרִיץ" },
-    none: { text: "ללא מגע", voice: "לְלֹא מַגָּע" }
-  };
+  function decodeBase64Utf8(str) {
+    try {
+      str = str.replace(/-/g, '+').replace(/_/g, '/');
+      while (str.length % 4) str += '=';
+      const binary = atob(str);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return new TextDecoder().decode(bytes);
+    } catch (e) {
+      return null;
+    }
+  }
 
-  const STROKES = {
-    micro: { text: "שלוש תנועות של סנטימטר אחד", voice: "שָׁלוֹשׁ תְּנוּעוֹת שֶׁל סֶנְטִימֶטֶר אֶחָד" },
-    glide: { text: "החלקה אטית ומבוקרת", voice: "הַחְלָקָה אִטִּית וּמְבֻקֶּרֶת" },
-    press: { text: "מגע יציב ללא חיכוך", voice: "מַגָּע יַצִּיב לְלֹא חִכּוּךְ" }
-  };
-
-  const FOCUSES = {
-    thighs: { text: "ירכיים רפויות על הכריות", voice: "יְרֵכַיִם רְפוּיוֹת עַל הַכָּרִיּוֹת" },
-    jaw: { text: "שחרור לסת מוחלט", voice: "שַׁחְרֵר לֶסֶת לַחֲלוּטִין" },
-    pelvis: { text: "שקיעת האגן למזרן", voice: "שְׁקִיעַת הָאַגָּן לַמִּזְרָן" },
-    breath: { text: "נשימה סרעפתית עמוקה", voice: "נְשִׁימָה סַרְעַפְתִּית עֲמֻקָּה" }
-  };
-
-  function parseUrlParams() {
+  function parsePayload() {
     let rawQuery = window.location.search;
     if (!rawQuery && window.location.hash.includes('?')) {
       rawQuery = window.location.hash.substring(window.location.hash.indexOf('?'));
     }
     const p = new URLSearchParams(rawQuery);
 
-    const type = p.get('t') || 'phys';
-    const durationMin = parseInt(p.get('m') || (type === 'rest' ? '3' : '6'), 10);
-    const actionSec = parseInt(p.get('a') || (type === 'rest' ? '4' : '10'), 10);
-    const restSec = parseInt(p.get('r') || (type === 'rest' ? '6' : '30'), 10);
-    
-    // פרמטרים מודולריים
-    const zoneKey = p.get('z') || (type === 'rest' ? 'none' : 'base');
-    const strokeKey = p.get('s') || 'micro';
-    const focusKey = p.get('f') || 'thighs';
+    let data = null;
 
-    const zObj = ZONES[zoneKey] || { text: zoneKey, voice: zoneKey };
-    const sObj = STROKES[strokeKey] || { text: strokeKey, voice: strokeKey };
-    const fObj = FOCUSES[focusKey] || { text: focusKey, voice: focusKey };
-
-    // דריסות טקסט חופשיות דרך ה-URL במידה ונשלחו
-    const customIntro = p.get('intro');
-    const customAct = p.get('act');
-    const customRest = p.get('rst');
-
-    if (type === 'rest') {
-      config = {
-        type: 'rest',
-        durationMin: durationMin,
-        actionDurationSec: actionSec,
-        restDurationSec: restSec,
-        areaText: "ללא מגע (התאוששות והרפיה)",
-        paceText: `נשימה סרעפתית: ${actionSec} שניות שאיפה, ${restSec} שניות נשיפה`,
-        introMsg: customIntro || "תדריך התאוששות. הערב אין מגע פיזי. שכב בנוח על הגב עם כריות מתחת לברכיים, שחרר לחלוטין את הירכיים והלסת, והתמקד בנשימה סרעפתית עמוקה. מתחילים.",
-        introVoice: "תַּדְרִיךְ הִתְאוֹשְׁשׁוּת. הָעֶרֶב אֵין מַגָּע פִיזִי. שְׁכַב בְּנוֹחַ עַל הַגַּב עִם כָּרִיּוֹת מִתַּחַת לַבִּרְכַּיִם, שַׁחְרֵר לַחֲלוּטִין אֶת הַיְּרֵכַיִם וְהַלֶּסֶת, וְהִתְמַקֵּד בִּנְשִׁימָה סַרְעַפְתִּית עֲמֻקָּה. מַתְחִילִים.",
-        actionMsg: customAct || `שאיפה עדינה לבטן (${actionSec} שניות). ${fObj.text}.`,
-        actionVoice: `שְׁאִיפָה עֲדִינָה לַבֶּטֶן. ${fObj.voice}.`,
-        restMsg: customRest || `נשיפה ארוכה דרך פה פתוח (${restSec} שניות). שחרר לסת, תן לאגן לשקוע למזרן.`,
-        restVoice: "נְשִׁיפָה אֲרֻכָּה דֶּרֶךְ פֶּה פָּתוּחַ. שַׁחְרֵר לֶסֶת, תֵּן לָאַגָּן לִשְׁקֹעַ לַמִּזְרָן."
-      };
-    } else {
-      config = {
-        type: 'physical',
-        durationMin: durationMin,
-        actionDurationSec: actionSec,
-        restDurationSec: restSec,
-        areaText: zObj.text,
-        paceText: `קצב סופר-איטי: ${actionSec} שניות פעולה, ${restSec} שניות עצירה`,
-        introMsg: customIntro || `תדריך אימון. אזור המגע: ${zObj.text}. ${sObj.text}. שכב עם כריות מתחת לברכיים, ירכיים ולסת רפויות. מתחילים.`,
-        introVoice: `תַּדְרִיךְ אִמּוּן. אֲזוֹר הַמַּגָּע: ${zObj.voice}. ${sObj.voice}. שְׁכַב עִם כָּרִיּוֹת מִתַּחַת לַבִּרְכַּיִם, יְרֵכַיִם וְלֶסֶת רְפוּיוֹת. מַתְחִילִים.`,
-        actionMsg: customAct || `מגע ב${zObj.text}. ${sObj.text}. ${fObj.text}.`,
-        actionVoice: `מַגָּע בְּ${zObj.voice}. ${sObj.voice}. ${fObj.voice}.`,
-        restMsg: customRest || "עצירה מוחלטת. שחרר לסת, נשום לבטן, תן לאגן לשקוע למזרן.",
-        restVoice: "עֲצִירָה מֻחְלֶטֶת. שַׁחְרֵר לֶסֶת, נְשׁוֹם לַבֶּטֶן, תֵּן לָאַגָּן לִשְׁקֹעַ לַמִּזְרָן."
-      };
+    // 1. קריאת JSON מלא מתוך Base64
+    if (p.get('b64')) {
+      const decoded = decodeBase64Utf8(p.get('b64'));
+      if (decoded) {
+        try { data = JSON.parse(decoded); } catch (e) {}
+      }
     }
+
+    // 2. קריאת JSON ישיר (אם נשלח מקודד רגיל)
+    if (!data && p.get('data')) {
+      try { data = JSON.parse(decodeURIComponent(p.get('data'))); } catch (e) {}
+    }
+
+    // 3. תמיכה ב-Hash ישיר
+    if (!data) {
+      const hash = window.location.hash.replace(/^#/, '');
+      if (hash.startsWith('{')) {
+        try { data = JSON.parse(decodeURIComponent(hash)); } catch (e) {}
+      }
+    }
+
+    // מיפוי הנתונים שהתקבלו מבחוץ (כולל תמיכה במפתחות מקוצרים לקיצור ה-URL)
+    config = {
+      durationMin: parseInt((data && (data.durationMin || data.m)) || p.get('m') || '3', 10),
+      actionDurationSec: parseInt((data && (data.actionSec || data.a)) || p.get('a') || '10', 10),
+      restDurationSec: parseInt((data && (data.restSec || data.r)) || p.get('r') || '20', 10),
+      areaText: (data && (data.areaText || data.area)) || p.get('area') || "בהתאם להנחיות",
+      paceText: (data && (data.paceText || data.pace)) || p.get('pace') || "קצב מבוקר",
+      introMsg: (data && (data.introMsg || data.im)) || p.get('im') || "תדריך אימון. התמקם בנוח. מתחילים.",
+      introVoice: (data && (data.introVoice || data.iv)) || p.get('iv') || "תַּדְרִיךְ אִמּוּן. הִתְמַקֵּם בְּנוֹחַ. מַתְחִילִים.",
+      actionMsg: (data && (data.actionMsg || data.am)) || p.get('am') || "שלב פעולה.",
+      actionVoice: (data && (data.actionVoice || data.av)) || p.get('av') || "שְׁלַב פְּעֻלָּה.",
+      restMsg: (data && (data.restMsg || data.rm)) || p.get('rm') || "שלב עצירה והרפיה.",
+      restVoice: (data && (data.restVoice || data.rv)) || p.get('rv') || "שְׁלַב עֲצִירָה וְהַרְפָּיָה.",
+      endMsg: (data && (data.endMsg || data.em)) || p.get('em') || "האימון הסתיים בהצלחה.",
+      endVoice: (data && (data.endVoice || data.ev)) || p.get('ev') || "הָאִמּוּן הִסְתַּיֵּם בְּהַצְלָחָה."
+    };
   }
 
   function populateVoices() {
@@ -342,15 +322,16 @@
   }
 
   testVoiceBtn.addEventListener('click', () => {
-    speak("תַּדְרִיךְ אִמּוּן. שְׁכַב בְּנוֹחַ, נְשׁוֹם עָמֹק לַבֶּטֶן וְשַׁחְרֵר אֶת הַלֶּסֶת. יְרֵכַיִם רְפוּיוֹת עַל הַכָּרִיּוֹת.");
+    speak(config.introVoice || "בדיקת שמע.");
   });
 
   function initFromConfig() {
-    parseUrlParams();
+    parsePayload();
     totalTimeLeft = config.durationMin * 60;
     phaseTimeLeft = config.actionDurationSec;
     areaDisplay.textContent = config.areaText;
     paceDisplay.textContent = config.paceText;
+    instructionText.textContent = config.introMsg;
     totalTimer.textContent = formatTime(totalTimeLeft);
     phaseTimer.textContent = String(config.actionDurationSec).padStart(2, '0');
   }
@@ -378,13 +359,13 @@
     currentPhase = newPhase;
     if (newPhase === 'action') {
       phaseTimeLeft = config.actionDurationSec;
-      phaseBadge.textContent = (config.type === 'rest') ? "שאיפה והרפיה" : "מגע מודע (תנועה)";
+      phaseBadge.textContent = "פעולה";
       phaseBadge.className = "phase-badge phase-action";
       instructionText.textContent = config.actionMsg;
       speak(config.actionVoice);
     } else if (newPhase === 'rest') {
       phaseTimeLeft = config.restDurationSec;
-      phaseBadge.textContent = "נשיפה ושקיעה במזרן";
+      phaseBadge.textContent = "עצירה והרפיה";
       phaseBadge.className = "phase-badge phase-rest";
       instructionText.textContent = config.restMsg;
       speak(config.restVoice);
@@ -449,7 +430,6 @@
     currentPhase = 'ready';
     phaseBadge.textContent = "מוכן להתחלה";
     phaseBadge.className = "phase-badge phase-ready";
-    instructionText.textContent = 'לחץ על "התחל אימון" להשמעת התדריך ותחילת התרגול';
     startBtn.textContent = 'התחל אימון';
     startBtn.style.display = 'block';
     pauseBtn.style.display = 'none';
@@ -461,12 +441,12 @@
     clearInterval(timerInterval);
     isRunning = false;
     releaseWakeLock();
-    phaseBadge.textContent = "האימון הסתיים בהצלחה";
+    phaseBadge.textContent = "הסתיים בהצלחה";
     phaseBadge.className = "phase-badge phase-rest";
-    instructionText.textContent = "האימון הסתיים בהצלחה. שמרת על הרפיית הגוף ועמדת בחוק המאסטרי.";
+    instructionText.textContent = config.endMsg;
     phaseTimer.textContent = "00";
     totalTimer.textContent = "00:00";
-    speak("הָאִמּוּן הִסְתַּיֵּם בְּהַצְלָחָה. שָׁמַרְתָּ עַל הַרְפָּיַת הַגּוּף וְעָמַדְתָּ בְּחֹק הַמַּאסְטֶרִי.");
+    speak(config.endVoice);
     startBtn.style.display = 'none';
     pauseBtn.style.display = 'none';
     resetBtn.style.display = 'block';
