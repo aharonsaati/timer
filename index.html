@@ -60,29 +60,10 @@
       margin-bottom: 0.5rem;
     }
 
-    .phase-intro {
-      background: rgba(187, 128, 255, 0.15);
-      color: #d2a8ff;
-      border: 1px solid #d2a8ff;
-    }
-
-    .phase-action {
-      background: rgba(240, 136, 62, 0.15);
-      color: var(--action-color);
-      border: 1px solid var(--action-color);
-    }
-
-    .phase-rest {
-      background: rgba(88, 166, 255, 0.15);
-      color: var(--rest-color);
-      border: 1px solid var(--rest-color);
-    }
-
-    .phase-ready {
-      background: rgba(139, 148, 158, 0.15);
-      color: var(--text-muted);
-      border: 1px solid var(--border);
-    }
+    .phase-intro { background: rgba(187, 128, 255, 0.15); color: #d2a8ff; border: 1px solid #d2a8ff; }
+    .phase-action { background: rgba(240, 136, 62, 0.15); color: var(--action-color); border: 1px solid var(--action-color); }
+    .phase-rest { background: rgba(88, 166, 255, 0.15); color: var(--rest-color); border: 1px solid var(--rest-color); }
+    .phase-ready { background: rgba(139, 148, 158, 0.15); color: var(--text-muted); border: 1px solid var(--border); }
 
     .timer-display {
       font-size: 4.5rem;
@@ -119,9 +100,7 @@
       margin-top: 0.5rem;
     }
 
-    .meta-details strong {
-      color: var(--text);
-    }
+    .meta-details strong { color: var(--text); }
 
     .voice-control-box {
       display: flex;
@@ -172,25 +151,10 @@
       transition: opacity 0.2s;
     }
 
-    button:active {
-      opacity: 0.8;
-    }
-
-    .btn-start {
-      background-color: var(--accent);
-      color: #fff;
-      grid-column: span 2;
-    }
-
-    .btn-pause {
-      background-color: #d29922;
-      color: #111;
-    }
-
-    .btn-reset {
-      background-color: var(--danger);
-      color: #fff;
-    }
+    button:active { opacity: 0.8; }
+    .btn-start { background-color: var(--accent); color: #fff; grid-column: span 2; }
+    .btn-pause { background-color: #d29922; color: #111; }
+    .btn-reset { background-color: var(--danger); color: #fff; }
   </style>
 </head>
 <body>
@@ -245,6 +209,28 @@
   const voiceSelect = document.getElementById('voiceSelect');
   const testVoiceBtn = document.getElementById('testVoiceBtn');
 
+  // מילון מונחים דינמי עם ניקוד מלא עבור מנוע הדיבור
+  const ZONES = {
+    base: { text: "בסיס האיבר בלבד", voice: "בְּסִיס הָאֵיבָר בִּלְבַד" },
+    mid: { text: "מרכז גוף האיבר", voice: "מֶרְכַּז גּוּף הָאֵיבָר" },
+    shaft: { text: "גוף האיבר במלואו", voice: "גּוּף הָאֵיבָר בִּמְלוֹאוֹ" },
+    corona: { text: "אזור העטרה והחריץ", voice: "אֲזוֹר הָעֲטָרָה וְהֶחָרִיץ" },
+    none: { text: "ללא מגע", voice: "לְלֹא מַגָּע" }
+  };
+
+  const STROKES = {
+    micro: { text: "שלוש תנועות של סנטימטר אחד", voice: "שָׁלוֹשׁ תְּנוּעוֹת שֶׁל סֶנְטִימֶטֶר אֶחָד" },
+    glide: { text: "החלקה אטית ומבוקרת", voice: "הַחְלָקָה אִטִּית וּמְבֻקֶּרֶת" },
+    press: { text: "מגע יציב ללא חיכוך", voice: "מַגָּע יַצִּיב לְלֹא חִכּוּךְ" }
+  };
+
+  const FOCUSES = {
+    thighs: { text: "ירכיים רפויות על הכריות", voice: "יְרֵכַיִם רְפוּיוֹת עַל הַכָּרִיּוֹת" },
+    jaw: { text: "שחרור לסת מוחלט", voice: "שַׁחְרֵר לֶסֶת לַחֲלוּטִין" },
+    pelvis: { text: "שקיעת האגן למזרן", voice: "שְׁקִיעַת הָאַגָּן לַמִּזְרָן" },
+    breath: { text: "נשימה סרעפתית עמוקה", voice: "נְשִׁימָה סַרְעַפְתִּית עֲמֻקָּה" }
+  };
+
   function parseUrlParams() {
     let rawQuery = window.location.search;
     if (!rawQuery && window.location.hash.includes('?')) {
@@ -252,11 +238,24 @@
     }
     const p = new URLSearchParams(rawQuery);
 
-    const type = p.get('t') || 'rest';
+    const type = p.get('t') || 'phys';
     const durationMin = parseInt(p.get('m') || (type === 'rest' ? '3' : '6'), 10);
     const actionSec = parseInt(p.get('a') || (type === 'rest' ? '4' : '10'), 10);
     const restSec = parseInt(p.get('r') || (type === 'rest' ? '6' : '30'), 10);
-    const zone = p.get('z') || (type === 'rest' ? 'none' : 'base');
+    
+    // פרמטרים מודולריים
+    const zoneKey = p.get('z') || (type === 'rest' ? 'none' : 'base');
+    const strokeKey = p.get('s') || 'micro';
+    const focusKey = p.get('f') || 'thighs';
+
+    const zObj = ZONES[zoneKey] || { text: zoneKey, voice: zoneKey };
+    const sObj = STROKES[strokeKey] || { text: strokeKey, voice: strokeKey };
+    const fObj = FOCUSES[focusKey] || { text: focusKey, voice: focusKey };
+
+    // דריסות טקסט חופשיות דרך ה-URL במידה ונשלחו
+    const customIntro = p.get('intro');
+    const customAct = p.get('act');
+    const customRest = p.get('rst');
 
     if (type === 'rest') {
       config = {
@@ -264,29 +263,28 @@
         durationMin: durationMin,
         actionDurationSec: actionSec,
         restDurationSec: restSec,
-        areaText: "ללא מגע (הרפיית ירכיים ורצפת אגן)",
+        areaText: "ללא מגע (התאוששות והרפיה)",
         paceText: `נשימה סרעפתית: ${actionSec} שניות שאיפה, ${restSec} שניות נשיפה`,
-        introMsg: "תדריך התאוששות. הערב אין מגע פיזי. שכב בנוח על הגב עם כריות מתחת לברכיים, שחרר לחלוטין את הירכיים והלסת, והתמקד בנשימה סרעפתית עמוקה. מתחילים.",
+        introMsg: customIntro || "תדריך התאוששות. הערב אין מגע פיזי. שכב בנוח על הגב עם כריות מתחת לברכיים, שחרר לחלוטין את הירכיים והלסת, והתמקד בנשימה סרעפתית עמוקה. מתחילים.",
         introVoice: "תַּדְרִיךְ הִתְאוֹשְׁשׁוּת. הָעֶרֶב אֵין מַגָּע פִיזִי. שְׁכַב בְּנוֹחַ עַל הַגַּב עִם כָּרִיּוֹת מִתַּחַת לַבִּרְכַּיִם, שַׁחְרֵר לַחֲלוּטִין אֶת הַיְּרֵכַיִם וְהַלֶּסֶת, וְהִתְמַקֵּד בִּנְשִׁימָה סַרְעַפְתִּית עֲמֻקָּה. מַתְחִילִים.",
-        actionMsg: `שאיפה עדינה דרך האף לבטן (${actionSec} שניות). ודא שהירכיים נחות בכבדות על הכריות.`,
-        actionVoice: "שְׁאִיפָה אִטִּית לַבֶּטֶן. יְרֵכַיִם רְפוּיוֹת עַל הַכָּרִיּוֹת.",
-        restMsg: `נשיפה איטית דרך פה פתוח (${restSec} שניות). שחרר את הלסת ותן לאגן לשקוע למזרן.`,
+        actionMsg: customAct || `שאיפה עדינה לבטן (${actionSec} שניות). ${fObj.text}.`,
+        actionVoice: `שְׁאִיפָה עֲדִינָה לַבֶּטֶן. ${fObj.voice}.`,
+        restMsg: customRest || `נשיפה ארוכה דרך פה פתוח (${restSec} שניות). שחרר לסת, תן לאגן לשקוע למזרן.`,
         restVoice: "נְשִׁיפָה אֲרֻכָּה דֶּרֶךְ פֶּה פָּתוּחַ. שַׁחְרֵר לֶסֶת, תֵּן לָאַגָּן לִשְׁקֹעַ לַמִּזְרָן."
       };
     } else {
-      let areaTitle = (zone === 'base') ? "בסיס האיבר (שליש תחתון בלבד)" : "מרכז גוף האיבר";
       config = {
         type: 'physical',
         durationMin: durationMin,
         actionDurationSec: actionSec,
         restDurationSec: restSec,
-        areaText: areaTitle,
-        paceText: `קצב נמלה סופר-איטי: ${actionSec} שניות תנועה, ${restSec} שניות עצירה`,
-        introMsg: `תדריך אימון. אזור המגע: ${areaTitle}. קצב סופר איטי של 3 מיקרו-תנועות. שכב עם כריות מתחת לברכיים, ירכיים ולסת רפויות לחלוטין. מתחילים.`,
-        introVoice: `תַּדְרִיךְ אִמּוּן. אֲזוֹר הַמַּגָּע: בְּסִיס הָאֵיבָר בִּלְבַד. קֶצֶב סוּפֶּר אִטִּי שֶׁל שָׁלוֹשׁ תְּנוּעוֹת שֶׁל סֶנְטִימֶטֶר אֶחָד. שְׁכַב עִם כָּרִיּוֹת מִתַּחַת לַבִּרְכַּיִם, יְרֵכַיִם וְלֶסֶת רְפוּיוֹת לַחֲלוּטִין. מַתְחִילִים.`,
-        actionMsg: `בצע מיקרו-תנועות (1 ס"מ) רק ב${areaTitle}. ודא שהירכיים רכות לחלוטין על הכריות!`,
-        actionVoice: "מַגָּע אִטִּי בַּבָּסִיס בִּלְבַד. שָׁלוֹשׁ תְּנוּעוֹת אִטִּיּוֹת. יְרֵכַיִם רְפוּיוֹת עַל הַכָּרִיּוֹת.",
-        restMsg: "עצירה מלאה! פתח פה, שחרר לסת, ונשוף ארוך. דמיין שהירכיים והישבן שוקעים למזרן.",
+        areaText: zObj.text,
+        paceText: `קצב סופר-איטי: ${actionSec} שניות פעולה, ${restSec} שניות עצירה`,
+        introMsg: customIntro || `תדריך אימון. אזור המגע: ${zObj.text}. ${sObj.text}. שכב עם כריות מתחת לברכיים, ירכיים ולסת רפויות. מתחילים.`,
+        introVoice: `תַּדְרִיךְ אִמּוּן. אֲזוֹר הַמַּגָּע: ${zObj.voice}. ${sObj.voice}. שְׁכַב עִם כָּרִיּוֹת מִתַּחַת לַבִּרְכַּיִם, יְרֵכַיִם וְלֶסֶת רְפוּיוֹת. מַתְחִילִים.`,
+        actionMsg: customAct || `מגע ב${zObj.text}. ${sObj.text}. ${fObj.text}.`,
+        actionVoice: `מַגָּע בְּ${zObj.voice}. ${sObj.voice}. ${fObj.voice}.`,
+        restMsg: customRest || "עצירה מוחלטת. שחרר לסת, נשום לבטן, תן לאגן לשקוע למזרן.",
         restVoice: "עֲצִירָה מֻחְלֶטֶת. שַׁחְרֵר לֶסֶת, נְשׁוֹם לַבֶּטֶן, תֵּן לָאַגָּן לִשְׁקֹעַ לַמִּזְרָן."
       };
     }
@@ -313,9 +311,7 @@
       v.name.toLowerCase().includes('female') ||
       v.name.includes('2')
     );
-    if (preferred) {
-      voiceSelect.value = preferred.name;
-    }
+    if (preferred) voiceSelect.value = preferred.name;
   }
 
   if ('speechSynthesis' in window) {
@@ -335,17 +331,13 @@
     utterance.rate = 0.9;
     utterance.pitch = 1.25;
 
-    const selectedName = voiceSelect.value;
-    const chosenVoice = availableVoices.find(v => v.name === selectedName);
-    if (chosenVoice) {
-      utterance.voice = chosenVoice;
-    }
+    const chosenVoice = availableVoices.find(v => v.name === voiceSelect.value);
+    if (chosenVoice) utterance.voice = chosenVoice;
 
     if (onEndCallback) {
       utterance.onend = onEndCallback;
       utterance.onerror = onEndCallback;
     }
-    
     window.speechSynthesis.speak(utterance);
   }
 
@@ -371,9 +363,7 @@
 
   async function requestWakeLock() {
     try {
-      if ('wakeLock' in navigator) {
-        wakeLock = await navigator.wakeLock.request('screen');
-      }
+      if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
     } catch (e) {}
   }
 
@@ -410,7 +400,6 @@
 
     totalTimeLeft--;
     phaseTimeLeft--;
-
     totalTimer.textContent = formatTime(totalTimeLeft);
     phaseTimer.textContent = String(phaseTimeLeft).padStart(2, '0');
 
@@ -474,10 +463,10 @@
     releaseWakeLock();
     phaseBadge.textContent = "האימון הסתיים בהצלחה";
     phaseBadge.className = "phase-badge phase-rest";
-    instructionText.textContent = "שמור על הרפיית הגוף. עמדת בחוק המאסטרי בהצלחה.";
+    instructionText.textContent = "האימון הסתיים בהצלחה. שמרת על הרפיית הגוף ועמדת בחוק המאסטרי.";
     phaseTimer.textContent = "00";
     totalTimer.textContent = "00:00";
-    speak("הָאִמּוּן הִסְתַּיֵּם בְּהַצְלָחָה. עָמַדְתָּ בְּחֹק הַמַּאסְטֶרִי.");
+    speak("הָאִמּוּן הִסְתַּיֵּם בְּהַצְלָחָה. שָׁמַרְתָּ עַל הַרְפָּיַת הַגּוּף וְעָמַדְתָּ בְּחֹק הַמַּאסְטֶרִי.");
     startBtn.style.display = 'none';
     pauseBtn.style.display = 'none';
     resetBtn.style.display = 'block';
